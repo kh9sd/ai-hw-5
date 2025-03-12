@@ -1,6 +1,7 @@
 import time
 import numpy as np
 from vis_gym import *
+import re
 
 gui_flag = False # Set to True to enable the game state visualization
 setup(GUI=gui_flag)
@@ -66,6 +67,72 @@ Complete the function below to do the following:
 
 '''
 
+"""
+self.actions = ['UP', 'DOWN', 'LEFT', 'RIGHT', 'FIGHT', 'HIDE']
+
+obs = {
+            'player_position': self.current_state['player_position'],
+            'player_health': self.health_state_to_int[self.current_state['player_health']],
+            'guard_in_cell': guard_in_cell if guard_in_cell else None,
+        }
+
+reward: single int
+ex: self.rewards = {
+            'goal': 10000,
+            'combat_win': 10,
+            'combat_loss': -1000,
+            'defeat': -1000
+        }
+or could be 0
+
+done: bool
+
+info = {'result': result, 'action': action_name}
+	where action_name is one of the 'UP', etc
+	where result is some string like
+		"Out of bounds!"
+		"Guard {guards_in_room[0]} is in the room! You must fight or hide."
+
+	return f"Fought {guard} and won!", self.rewards['combat_win']
+	return f"Fought {guard} and lost!", self.rewards['combat_loss']
+"""
+
+def guard_name_to_index(g: str):
+	if g == "G1":
+		return 0
+	elif g == "G2":
+		return 1
+	elif g == "G3":
+		return 2
+	elif g == "G4":
+		return 3
+	else:
+		assert False
+
+def do_episode():
+	env.reset()
+	wins_guards_fights = np.zeros(len(env.guards))
+	lost_guard_fights = np.zeros(len(env.guards))
+	won_regex = re.compile(r'Fought (\S*) and won!')
+	lost_regex = re.compile(r'Fought (\S*) and lost!')
+
+	while(True):
+		observation, reward, done, info, = env.step(env.action_space.sample())
+		if done:
+			break
+
+		won_result = won_regex.match(info["result"])
+		lost_result = lost_regex.match(info["result"])
+
+		if won_result is not None:
+			# print(won_result.group(1))
+			wins_guards_fights[guard_name_to_index(won_result.group(1))] += 1
+		if lost_result is not None:
+			#print(lost_result.group(1))
+			lost_guard_fights[guard_name_to_index(lost_result.group(1))] += 1
+
+	return wins_guards_fights, wins_guards_fights + lost_guard_fights
+
 def estimate_victory_probability(num_episodes=100000):
 	"""
     Probability estimator
@@ -78,6 +145,19 @@ def estimate_victory_probability(num_episodes=100000):
     """
 	P = np.zeros(len(env.guards))
 
+	wins_guards_fights = np.zeros(len(env.guards))
+	total_guard_fights = np.zeros(len(env.guards))
+	for i in range(num_episodes):
+		#print(i)
+		episode_wins, episode_total = do_episode()
+
+		wins_guards_fights += episode_wins
+		total_guard_fights += episode_total
+
+	#print(f"{wins_guards_fights=}")
+	#print(f"{total_guard_fights=}")
+	P = wins_guards_fights / total_guard_fights
+	#print(f"{P=}")
 	'''
 
 	YOUR CODE HERE
@@ -87,3 +167,5 @@ def estimate_victory_probability(num_episodes=100000):
 
 	return P
 
+
+#print(estimate_victory_probability())
