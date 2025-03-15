@@ -123,23 +123,23 @@ def do_episode_Q_learning(Q_table: dict[int, np.array], gamma=0.9, epsilon=1):
 	updates = np.zeros((NUMBER_OF_STATES, NUMBER_OF_ACTIONS))
 
 	while(True):
-		action = epsilon_greedy(epsilon=epsilon, Q_s=Q_table[state_hash])
+		action = epsilon_greedy(epsilon=epsilon, Q_s=Q_table.setdefault(state_hash, np.zeros(NUMBER_OF_ACTIONS)))
 
 		state_succ_observation, reward, done, info, = env.step(action)
-
-		# TODO: might need to move break to before loop?
-		# or to very end?
-		if done:
-			break
 
 		state_succ_hash = hash(state_succ_observation)
 
 		learning_rate = 1 / (1 + updates[state_hash, action])
 
-		Q_table[state_hash][action] = (1 - learning_rate) * Q_table[state_hash][action] + learning_rate * (reward + gamma * np.max(Q_table(state_succ_hash)) - Q_table[state_hash][action])
+		Q_table[state_hash][action] = (1 - learning_rate) * Q_table[state_hash][action] + learning_rate * (reward + gamma * np.max(Q_table.setdefault(state_succ_hash, np.zeros(NUMBER_OF_ACTIONS))) - Q_table[state_hash][action])
 
 		updates[state_succ_hash, action] += 1
 		state_hash = state_succ_hash
+
+		# Do check at very end I think?
+		# If we run into an action that kills us, want to incorporate that reward
+		if done:
+			break
 		
 
 def Q_learning(num_episodes=10000, gamma=0.9, epsilon=1, decay_rate=0.999):
