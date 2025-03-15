@@ -114,13 +114,12 @@ def epsilon_greedy(epsilon, Q_s):
 		return np.argmax(Q_s) 
 
 
-def do_episode_Q_learning(Q_table: dict[int, np.array], gamma=0.9, epsilon=1):
+def do_episode_Q_learning(Q_table: dict[int, np.array], updates: np.array, gamma=0.9, epsilon=1):
 	initial_state_observation, initial_reward, initial_done, initial_info = env.reset()
 	assert(initial_reward == 0)
 	assert(initial_done == False)
 
 	state_hash = hash(initial_state_observation)
-	updates = np.zeros((NUMBER_OF_STATES, NUMBER_OF_ACTIONS))
 
 	while(True):
 		action = epsilon_greedy(epsilon=epsilon, Q_s=Q_table.setdefault(state_hash, np.zeros(NUMBER_OF_ACTIONS)))
@@ -133,7 +132,7 @@ def do_episode_Q_learning(Q_table: dict[int, np.array], gamma=0.9, epsilon=1):
 
 		Q_table[state_hash][action] = (1 - learning_rate) * Q_table[state_hash][action] + learning_rate * (reward + gamma * np.max(Q_table.setdefault(state_succ_hash, np.zeros(NUMBER_OF_ACTIONS))) - Q_table[state_hash][action])
 
-		updates[state_succ_hash, action] += 1
+		updates[state_hash, action] += 1
 		state_hash = state_succ_hash
 
 		# Do check at very end I think?
@@ -156,17 +155,23 @@ def Q_learning(num_episodes=10000, gamma=0.9, epsilon=1, decay_rate=0.999):
     - Q_table (dict): Dictionary containing the Q-values for each state-action pair.
     """
 	Q_table = {}
+	updates = np.zeros((NUMBER_OF_STATES, NUMBER_OF_ACTIONS), dtype=int)
 
-	# initial value for entry not in table is 0
-	for _ in num_episodes:
-		do_episode_Q_learning(Q_table=Q_table, gamma=gamma, epsilon=epsilon)
-		epsilon *= decay_rate
+	for i in range(num_episodes):
+		if (i%10000 == 0):
+			print(f"Doing episode {i} at {time.ctime()}")
+
+		do_episode_Q_learning(Q_table=Q_table, updates=updates, gamma=gamma, epsilon=epsilon)
+		# epsilon floor
+		epsilon = max(decay_rate*epsilon, 0.001)
 
 	return Q_table
 
-decay_rate = ''' YOUR DECAY RATE HERE '''
+decay_rate = 0.9999
 
-Q_table = Q_learning(num_episodes=1000000, gamma=0.9, epsilon=1, decay_rate=decay_rate) # Run Q-learning
+# OG:
+#Q_table = Q_learning(num_episodes=1000000, gamma=0.9, epsilon=1, decay_rate=decay_rate) # Run Q-learning
+Q_table = Q_learning(num_episodes=100000, gamma=0.9, epsilon=1, decay_rate=decay_rate) # Run Q-learning
 
 # Save the Q-table dict to a file
 with open('Q_table.pickle', 'wb') as handle:
@@ -185,7 +190,9 @@ Comment before final submission or autograder may fail.
 # total_reward = 0
 # while not done:
 # 	state = hash(obs)
-# 	action = max(Q_table[state], key=Q_table[state].get)
+# 	print(state)
+# 	# action = max(Q_table[state], key=Q_table[state].get)
+# 	action = np.argmax(Q_table[state])
 # 	obs, reward, done, info = env.step(action)
 # 	total_reward += reward
 # 	if gui_flag:
