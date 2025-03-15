@@ -99,19 +99,31 @@ info = {'result': result, 'action': action_name}
 	return f"Fought {guard} and lost!", self.rewards['combat_loss']
 """
 
-def do_episode_Q_learning(Q_table: dict[int, np.array], gamma=0.9, epsilon=1, decay_rate=0.999):
-	# TODO: env.reset returns same tuple as step
-	env.reset()
+# TODO: a better way to calc it?
+NUMBER_OF_STATES = 375
+# TODO: length of env.actions
+NUMBER_OF_ACTIONS = 6
 
-	# TODO: set it.
-	state_hash = 0
 
-	# TODO: move to right place
-	epsilon *= decay_rate
+def epsilon_greedy(epsilon, Q_s):
+	take_random_choice = random.random() < epsilon
+	
+	if (take_random_choice):
+		return env.action_space.sample()
+	else:
+		return np.argmax(Q_s) 
+
+
+def do_episode_Q_learning(Q_table: dict[int, np.array], gamma=0.9, epsilon=1):
+	initial_state_observation, initial_reward, initial_done, initial_info = env.reset()
+	assert(initial_reward == 0)
+	assert(initial_done == False)
+
+	state_hash = hash(initial_state_observation)
+	updates = np.zeros((NUMBER_OF_STATES, NUMBER_OF_ACTIONS))
 
 	while(True):
-		# TODO: epsilon greedy
-		action = 0
+		action = epsilon_greedy(epsilon=epsilon, Q_s=Q_table[state_hash])
 
 		state_succ_observation, reward, done, info, = env.step(action)
 
@@ -122,24 +134,13 @@ def do_episode_Q_learning(Q_table: dict[int, np.array], gamma=0.9, epsilon=1, de
 
 		state_succ_hash = hash(state_succ_observation)
 
-		# TODO: wtf is this
-		learning_rate = 0
+		learning_rate = 1 / (1 + updates[state_hash, action])
 
-		Q_table[state_hash][action] = (1 - learning_rate) * Q_table[state_hash][action] + learning_rate * (reward + gamma * np.argmax(Q_table(state_succ_hash)) - Q_table[state_hash][action])
+		Q_table[state_hash][action] = (1 - learning_rate) * Q_table[state_hash][action] + learning_rate * (reward + gamma * np.max(Q_table(state_succ_hash)) - Q_table[state_hash][action])
+
+		updates[state_succ_hash, action] += 1
+		state_hash = state_succ_hash
 		
-		# - The state space is defined by the player's position (x,y), the player's health (h), and the guard in the cell (g).
-		
-		# - To simplify the representation of the state space, each state may be hashed into a unique integer value using the hash function provided above.
-		#   For instance, the observation {'player_position': (1, 2), 'player_health': 2, 'guard_in_cell='G4'} 
-		#   will be hashed to 1*5*3*5 + 2*3*5 + 2*5 + 4 = 119. There are 375 unique states.
-
-		# - Your Q-table should be a dictionary with the following format:
-
-		# 		- Each key is a number representing the state (hashed using the provided hash() function), and each value should be an np.array
-		# 		  of length equal to the number of actions (initialized to all zeros).
-
-		# 		- This will allow you to look up Q(s,a) as Q_table[state][action], as well as directly use efficient numpy operators
-		# 		  when considering all actions from a given state, such as np.argmax(Q_table[state]) within your Bellman equation updates.
 
 def Q_learning(num_episodes=10000, gamma=0.9, epsilon=1, decay_rate=0.999):
 	"""
@@ -158,7 +159,8 @@ def Q_learning(num_episodes=10000, gamma=0.9, epsilon=1, decay_rate=0.999):
 
 	# initial value for entry not in table is 0
 	for _ in num_episodes:
-		do_episode_Q_learning(Q_table=Q_table, gamma=gamma, epsilon=epsilon, decay_rate=decay_rate)
+		do_episode_Q_learning(Q_table=Q_table, gamma=gamma, epsilon=epsilon)
+		epsilon *= decay_rate
 
 	return Q_table
 
