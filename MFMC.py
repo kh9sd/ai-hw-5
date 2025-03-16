@@ -105,13 +105,31 @@ NUMBER_OF_STATES = 375
 NUMBER_OF_ACTIONS = 6
 
 
+# for some reason, np.argmax actually is slower than this??????
+def my_shitty_argmax(arr: np.array):
+	# assumes arr is non-empty.
+	cur_idx = 0
+	for i, val in enumerate(arr):
+		if val > arr[cur_idx]:
+			cur_idx = i
+	
+	return cur_idx
+
+# quick tests
+# print(f"{my_shitty_argmax(np.array([-0.1]))=}")
+# print(f"{my_shitty_argmax(np.array([-0.1, 0.3]))=}")
+# print(f"{my_shitty_argmax(np.array([-0.1, -0.5]))=}")
+# print(f"{my_shitty_argmax(np.array([-0.1, -0.5, 1]))=}")
+# print(f"{my_shitty_argmax(np.array([-0.1, -0.5, 1, -2]))=}")
+
 def epsilon_greedy(epsilon, Q_s):
 	take_random_choice = random.random() < epsilon
 	
 	if (take_random_choice):
 		return env.action_space.sample()
 	else:
-		return np.argmax(Q_s) 
+		#return np.argmax(Q_s) 
+		return my_shitty_argmax(Q_s) 
 
 
 def do_episode_Q_learning(Q_table: dict[int, np.array], updates: np.array, gamma=0.9, epsilon=1):
@@ -130,7 +148,7 @@ def do_episode_Q_learning(Q_table: dict[int, np.array], updates: np.array, gamma
 
 		learning_rate = 1 / (1 + updates[state_hash, action])
 
-		Q_table[state_hash][action] = (1 - learning_rate) * Q_table[state_hash][action] + learning_rate * (reward + gamma * np.max(Q_table.setdefault(state_succ_hash, np.zeros(NUMBER_OF_ACTIONS))) - Q_table[state_hash][action])
+		Q_table[state_hash][action] = (1 - learning_rate) * Q_table[state_hash][action] + learning_rate * (reward + gamma * max(Q_table.setdefault(state_succ_hash, np.zeros(NUMBER_OF_ACTIONS))) - Q_table[state_hash][action])
 
 		updates[state_hash, action] += 1
 		state_hash = state_succ_hash
@@ -170,8 +188,13 @@ def Q_learning(num_episodes=10000, gamma=0.9, epsilon=1, decay_rate=0.999):
 decay_rate = 0.9999
 
 # OG:
-#Q_table = Q_learning(num_episodes=1000000, gamma=0.9, epsilon=1, decay_rate=decay_rate) # Run Q-learning
-Q_table = Q_learning(num_episodes=100000, gamma=0.9, epsilon=1, decay_rate=decay_rate) # Run Q-learning
+Q_table = Q_learning(num_episodes=1000000, gamma=0.9, epsilon=1, decay_rate=decay_rate) # Run Q-learning
+
+# import cProfile
+# with cProfile.Profile() as pr:
+# 	Q_table = Q_learning(num_episodes=100000, gamma=0.9, epsilon=1, decay_rate=decay_rate) # Run Q-learning
+# 	#pr.print_stats()
+# 	pr.dump_stats("profile")
 
 # Save the Q-table dict to a file
 with open('Q_table.pickle', 'wb') as handle:
